@@ -3,19 +3,27 @@ from django.db import models
 from django.contrib.auth import get_user_model
 
 
-class Crew(models.Model):
-    first_name = models.CharField(max_length=100)
-    last_name = models.CharField(max_length=100)
-
-    def __str__(self):
-        return f'{self.first_name} {self.last_name}'
-
-
 class AirplaneType(models.Model):
     name = models.CharField(max_length=100)
 
     def __str__(self):
         return f"{self.name}"
+
+
+class Airport(models.Model):
+    name = models.CharField(max_length=100)
+    closest_big_city = models.CharField(max_length=100)
+
+    def __str__(self):
+        return f"{self.closest_big_city} - {self.name}"
+
+
+class Crew(models.Model):
+    first_name = models.CharField(max_length=100)
+    last_name = models.CharField(max_length=100)
+
+    def __str__(self):
+        return f"{self.first_name} {self.last_name}"
 
 
 class Airplane(models.Model):
@@ -35,14 +43,6 @@ class Airplane(models.Model):
     def __str__(self):
         return (f"{self.airplane_type} - {self.name}: "
                 f"{self.rows} {self.seats_in_row}")
-
-
-class Airport(models.Model):
-    name = models.CharField(max_length=100)
-    closest_big_city = models.CharField(max_length=100)
-
-    def __str__(self):
-        return f"{self.closest_big_city} - {self.name}"
 
 
 class Route(models.Model):
@@ -67,6 +67,9 @@ class Route(models.Model):
 
 
 class Flight(models.Model):
+    departure_time = models.DateTimeField()
+    arrival_time = models.DateTimeField()
+    crew = models.ManyToManyField(Crew, related_name="flights")
     route = models.ForeignKey(
         Route,
         on_delete=models.CASCADE,
@@ -77,9 +80,6 @@ class Flight(models.Model):
         on_delete=models.CASCADE,
         related_name="flights"
     )
-    departure_time = models.DateTimeField()
-    arrival_time = models.DateTimeField()
-    crew = models.ManyToManyField(Crew, related_name="flights")
 
     def clean(self):
         if self.arrival_time <= self.departure_time:
