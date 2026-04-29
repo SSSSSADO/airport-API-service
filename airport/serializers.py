@@ -14,12 +14,12 @@ from airport.models import (
 )
 
 
-class AirPlainTypeSerializer(serializers.ModelSerializer):
+class AirplaneTypeSerializer(serializers.ModelSerializer):
     class Meta:
         model = AirplaneType
         fields = ("id", "name")
 
-class AirPlainSerializer(serializers.ModelSerializer):
+class AirplaneSerializer(serializers.ModelSerializer):
     class Meta:
         model = Airplane
         fields = ("id", "name", "rows", "seats_in_row", "airplane_type")
@@ -48,6 +48,38 @@ class TicketSerializer(serializers.ModelSerializer):
         fields = ("id", "row", "seat", "flight", "order")
 
 
+class TicketCreateSerializer(serializers.Serializer):
+    row = serializers.IntegerField()
+    seat = serializers.IntegerField()
+
+
+class OrderSerializer(serializers.ModelSerializer):
+    tickets = TicketSerializer(many=True, read_only=True)
+
+    class Meta:
+        model = Order
+        fields = ("id", "created_at", "tickets")
+
+
+class OrderCreateSerializer(serializers.Serializer):
+    flight = serializers.PrimaryKeyRelatedField(
+        queryset=Flight.objects.all()
+    )
+    tickets = TicketCreateSerializer(many=True)
+
+    def create(self, validated_data):
+        tickets_data = validated_data["tickets"]
+        flight = validated_data["flight"]
+        user = self.context["request"].user
+
+        return Ticket.create_order(
+            user=user,
+            flight=flight,
+            seats=[(t["row"], t["seat"]) for t in tickets_data]
+        )
+
+
+
 class FlightSerializer(serializers.ModelSerializer):
     seats_left = serializers.SerializerMethodField()
 
@@ -64,30 +96,4 @@ class FlightSerializer(serializers.ModelSerializer):
         )
 
     def get_seats_left(self, obj):
-        return obj.seats_left
-
-
-class OrderSerializer(serializers.ModelSerializer):
-    tickets = serializers.SerializerMethodField(many=True, write_only=True)
-
-    class Meta:
-        model = Order
-        fields = ("id", "created_at", "user", "tickets")
-
-    def create(self, validated_data):
-        user = self.context["request"].user
-        tickets_data = validated_data.pop("tickets")
-
-        with transaction.atomic():
-            order = Order.objects.create(**validated_data)
-            tickets = []
-            for ticket_data in tickets_data:
-                ticket = Ticket(
-                    order=order,
-                    **ticket_data
-                )
-                ticket.full_clean()
-                tickets.append(ticket)
-            Ticket.objects.bulk_create(tickets)
-
-        return order
+        return obj.seats_left()

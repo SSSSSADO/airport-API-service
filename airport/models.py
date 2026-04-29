@@ -1,5 +1,5 @@
 from django.core.exceptions import ValidationError
-from django.db import models
+from django.db import models, transaction
 from django.contrib.auth import get_user_model
 
 
@@ -148,6 +148,25 @@ class Ticket(models.Model):
             flight=self.flight,
         ).exists():
             raise ValidationError("Seat already taken")
+
+    @staticmethod
+    def create_order(user, flight, seats):
+        with transaction.atomic():
+            tickets = []
+            order = Order.objects.create(user=user)
+
+            for row, seat in seats:
+                ticket = Ticket(
+                    flight=flight,
+                    order=order,
+                    row=row,
+                    seat=seat
+                )
+                ticket.full_clean()
+                tickets.append(ticket)
+
+            Ticket.objects.bulk_create(tickets)
+            return order
 
     def __str__(self):
         return (f"{self.flight} {self.order}\n"
