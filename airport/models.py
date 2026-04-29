@@ -58,6 +58,9 @@ class Route(models.Model):
     )
     distance = models.PositiveIntegerField()
 
+    class Meta:
+        unique_together = ("source", "destination")
+
     def clean(self):
         if self.source == self.destination:
             raise ValidationError("Source and destination must be different")
@@ -113,7 +116,25 @@ class Order(models.Model):
         related_name="orders"
     )
 
+    @staticmethod
+    def create_order(user, flight, seats):
+        with transaction.atomic():
+            order = Order.objects.create(user=user)
 
+            tickets = []
+            for row, seat in seats:
+                ticket = Ticket(
+                    order=order,
+                    flight=flight,
+                    row=row,
+                    seat=seat
+                )
+                ticket.full_clean()
+                tickets.append(ticket)
+
+            Ticket.objects.bulk_create(tickets)
+
+            return order
 
     def __str__(self):
         return f"{self.user} {self.created_at}"
@@ -148,25 +169,6 @@ class Ticket(models.Model):
             flight=self.flight,
         ).exists():
             raise ValidationError("Seat already taken")
-
-    @staticmethod
-    def create_order(user, flight, seats):
-        with transaction.atomic():
-            tickets = []
-            order = Order.objects.create(user=user)
-
-            for row, seat in seats:
-                ticket = Ticket(
-                    flight=flight,
-                    order=order,
-                    row=row,
-                    seat=seat
-                )
-                ticket.full_clean()
-                tickets.append(ticket)
-
-            Ticket.objects.bulk_create(tickets)
-            return order
 
     def __str__(self):
         return (f"{self.flight} {self.order}\n"

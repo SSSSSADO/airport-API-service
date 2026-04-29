@@ -14,10 +14,17 @@ from airport.models import (
 from airport.serializers import (
     AirplaneTypeSerializer,
     AirplaneSerializer,
+    AirplaneListSerializer,
+    AirplaneRetrieveSerializer,
     CrewSerializer,
     AirportSerializer,
+    AirportListSerializer,
     RouteSerializer,
+    RouteListSerializer,
+    RouteRetrieveSerializer,
     FlightSerializer,
+    FlightRetrieveSerializer,
+    FlightListSerializer,
     OrderSerializer,
     OrderCreateSerializer,
     TicketSerializer,
@@ -32,17 +39,34 @@ class AirplaneTypeViewSet(viewsets.ModelViewSet):
 
 class AirplaneViewSet(viewsets.ModelViewSet):
     queryset = Airplane.objects.all()
-    serializer_class = AirplaneSerializer
+
+    def get_serializer_class(self):
+        if self.action == "list":
+            return AirplaneListSerializer
+        if self.action == "retrieve":
+            return AirplaneRetrieveSerializer
+        return AirplaneSerializer
 
 
 class AirportViewSet(viewsets.ModelViewSet):
     queryset = Airport.objects.all()
     serializer_class = AirportSerializer
 
+    def get_serializer_class(self):
+        if self.action == "list":
+            return AirportListSerializer
+        return AirportSerializer
+
 
 class RouteViewSet(viewsets.ModelViewSet):
     queryset = Route.objects.all()
-    serializer_class = RouteSerializer
+
+    def get_serializer_class(self):
+        if self.action == "list":
+            return RouteListSerializer
+        if self.action == "retrieve":
+            return RouteRetrieveSerializer
+        return RouteSerializer
 
 
 class CrewViewSet(viewsets.ModelViewSet):
@@ -57,7 +81,13 @@ class TicketViewSet(viewsets.ModelViewSet):
 
 class FlightViewSet(viewsets.ModelViewSet):
     queryset = Flight.objects.all()
-    serializer_class = FlightSerializer
+
+    def get_serializer_class(self):
+        if self.action == "list":
+            return FlightListSerializer
+        if self.action == "retrieve":
+            return FlightRetrieveSerializer
+        return FlightSerializer
 
 
 class OrderViewSet(viewsets.ModelViewSet):
