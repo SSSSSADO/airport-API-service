@@ -66,7 +66,7 @@ class Route(models.Model):
             raise ValidationError("Source and destination must be different")
 
     def __str__(self):
-        return f"{self.source} -> {self.destination} - {self.distance}"
+        return f"{self.source} -> {self.destination}"
 
 
 class Flight(models.Model):
@@ -88,24 +88,11 @@ class Flight(models.Model):
         if self.arrival_time <= self.departure_time:
             raise ValidationError("Arrival must be after departure")
 
-    def get_taken_seats(self):
-        return self.tickets.values_list("row", "seat")
-
     def seats_left(self):
-        return self.airplane.capacity - self.tickets.count()
-
-    def get_available_seats(self):
-        taken = set(self.get_taken_seats())
-        seats = []
-        for row in range(1, self.airplane.rows + 1):
-            for seat in range(1, self.airplane.seats_in_row + 1):
-                if (row, seat) not in taken:
-                    seats.append((row, seat))
-        return seats
+        return self.airplane.capacity - getattr(self, "seats_taken", 0)
 
     def __str__(self):
-        return (f"{self.route} {self.airplane}\n"
-                f"{self.departure_time} - {self.arrival_time}")
+        return f"{self.route} - {self.airplane}"
 
 
 class Order(models.Model):

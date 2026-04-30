@@ -1,5 +1,3 @@
-from django.db import transaction
-
 from rest_framework import serializers
 
 from airport.models import (
@@ -69,12 +67,8 @@ class RouteSerializer(serializers.ModelSerializer):
 
 
 class RouteListSerializer(serializers.ModelSerializer):
-    source = serializers.SlugRelatedField(
-        read_only=True, slug_field="name"
-    )
-    destination = serializers.SlugRelatedField(
-        read_only=True, slug_field="name"
-    )
+    source = serializers.CharField(source="source.name")
+    destination = serializers.CharField(source="destination.name")
 
     class Meta:
         model = Route
@@ -82,8 +76,8 @@ class RouteListSerializer(serializers.ModelSerializer):
 
 
 class RouteRetrieveSerializer(serializers.ModelSerializer):
-    source = AirportSerializer()
-    destination = AirportSerializer()
+    source = AirportSerializer(read_only=True)
+    destination = AirportSerializer(read_only=True)
 
     class Meta:
         model = Route
@@ -97,41 +91,15 @@ class CrewSerializer(serializers.ModelSerializer):
         fields = ("id", "first_name", "last_name")
 
 
-# Ticket
-class TicketSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = Ticket
-        fields = ("id", "row", "seat", "flight", "order")
+class CrewListSerializer(serializers.ModelSerializer):
+    full_name = serializers.SerializerMethodField()
 
-
-class TicketCreateSerializer(serializers.Serializer):
-    row = serializers.IntegerField()
-    seat = serializers.IntegerField()
-
-
-# Order
-class OrderSerializer(serializers.ModelSerializer):
-    tickets = TicketSerializer(many=True, read_only=True)
+    def get_full_name(self, obj):
+        return f"{obj.first_name} {obj.last_name}"
 
     class Meta:
-        model = Order
-        fields = ("id", "created_at", "tickets")
-
-
-class OrderCreateSerializer(serializers.Serializer):
-    flight = serializers.PrimaryKeyRelatedField(queryset=Flight.objects.all())
-    tickets = TicketCreateSerializer(many=True)
-
-    def create(self, validated_data):
-        tickets_data = validated_data["tickets"]
-        flight = validated_data["flight"]
-        user = self.context["request"].user
-
-        return Order.create_order(
-            user=user,
-            flight=flight,
-            seats=[(t["row"], t["seat"]) for t in tickets_data]
-        )
+        model = Crew
+        fields = ("id", "full_name")
 
 
 # Flight
@@ -150,14 +118,11 @@ class FlightSerializer(serializers.ModelSerializer):
 
 class FlightListSerializer(serializers.ModelSerializer):
     route = RouteListSerializer()
-    seats_left = serializers.SerializerMethodField()
+    seats_left = serializers.IntegerField()
 
     class Meta:
         model = Flight
         fields = ("id", "route", "seats_left")
-
-    def get_seats_left(self, obj):
-        return obj.seats_left()
 
 
 class FlightRetrieveSerializer(FlightListSerializer):
@@ -175,4 +140,58 @@ class FlightRetrieveSerializer(FlightListSerializer):
             "route",
             "airplane",
             "seats_left"
+        )
+
+
+# Ticket
+class TicketSerializer(serializers.ModelSerializer):
+
+    class Meta:
+        model = Ticket
+        fields = ("id", "row", "seat", "flight", "order")
+
+
+class TicketListSerializer(serializers.ModelSerializer):
+    route = serializers.CharField(source="flight.route", read_only=True)
+
+    class Meta:
+        model = Ticket
+        fields = ("id", "row", "seat", "route")
+
+
+class TicketRetrieveSerializer(serializers.ModelSerializer):
+    flight = FlightListSerializer(read_only=True)
+
+    class Meta:
+        model = Ticket
+        fields = ("id", "row", "seat", "flight", "order")
+
+
+class TicketCreateSerializer(serializers.Serializer):
+    row = serializers.IntegerField()
+    seat = serializers.IntegerField()
+
+
+class OrderSerializer(serializers.ModelSerializer):
+    tickets = TicketSerializer(many=True, read_only=True)
+
+    class Meta:
+        model = Order
+        fields = ("id", "created_at", "tickets")
+
+
+# Order
+class OrderCreateSerializer(serializers.Serializer):
+    flight = serializers.PrimaryKeyRelatedField(queryset=Flight.objects.all())
+    tickets = TicketCreateSerializer(many=True)
+
+    def create(self, validated_data):
+        tickets_data = validated_data["tickets"]
+        flight = validated_data["flight"]
+        user = self.context["request"].user
+
+        return Order.create_order(
+            user=user,
+            flight=flight,
+            seats=[(t["row"], t["seat"]) for t in tickets_data]
         )
