@@ -1,16 +1,13 @@
 from django.db.models import Count
+
 from rest_framework import viewsets
 from rest_framework.permissions import IsAuthenticated
 
+from airport.permissions import (
+    IsAdminOrReadOnly, IsAuthenticatedOrReadOnly, IsOwnerOrAdmin
+)
 from airport.models import (
-    Airport,
-    Route,
-    Flight,
-    Order,
-    Crew,
-    Airplane,
-    AirplaneType,
-    Ticket
+    Airport, Route, Flight, Order, Crew, Airplane, AirplaneType, Ticket
 )
 from airport.serializers import (
     AirplaneTypeSerializer,
@@ -30,7 +27,8 @@ from airport.serializers import (
     OrderSerializer,
     OrderCreateSerializer,
     TicketSerializer,
-    TicketCreateSerializer, TicketListSerializer, TicketRetrieveSerializer,
+    TicketListSerializer,
+    TicketRetrieveSerializer,
 )
 
 
@@ -41,6 +39,7 @@ class AirplaneTypeViewSet(viewsets.ModelViewSet):
 
 class AirplaneViewSet(viewsets.ModelViewSet):
     queryset = Airplane.objects.all().select_related("airplane_type")
+    permission_classes = [IsAdminOrReadOnly]
 
     def get_serializer_class(self):
         if self.action == "list":
@@ -52,7 +51,7 @@ class AirplaneViewSet(viewsets.ModelViewSet):
 
 class AirportViewSet(viewsets.ModelViewSet):
     queryset = Airport.objects.all()
-    serializer_class = AirportSerializer
+    permission_classes = [IsAuthenticatedOrReadOnly]
 
     def get_serializer_class(self):
         if self.action == "list":
@@ -62,6 +61,7 @@ class AirportViewSet(viewsets.ModelViewSet):
 
 class RouteViewSet(viewsets.ModelViewSet):
     queryset = Route.objects.all().select_related("source", "destination")
+    permission_classes = [IsAuthenticatedOrReadOnly]
 
     def get_serializer_class(self):
         if self.action == "list":
@@ -108,6 +108,7 @@ class TicketViewSet(viewsets.ModelViewSet):
 
 class FlightViewSet(viewsets.ModelViewSet):
     queryset = Flight.objects.all()
+    permission_classes = [IsAuthenticatedOrReadOnly]
 
     def get_queryset(self):
         return (
@@ -147,3 +148,8 @@ class OrderViewSet(viewsets.ModelViewSet):
         if self.action == "create":
             return OrderCreateSerializer
         return OrderSerializer
+
+    def get_permissions(self):
+        if self.action in ["retrieve", "update", "partial_update", "destroy"]:
+            return [IsAuthenticated(), IsOwnerOrAdmin()]
+        return super().get_permissions()
